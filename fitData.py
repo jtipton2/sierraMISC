@@ -2,8 +2,8 @@ import numpy as np
 import pytetgen as pytet
 from sklearn import neighbors
 
-def fitData(sourceCoord,sourceTemp,targetID,targetIndex,targetCoord):
-    """Fit point cloud temperatures from a neutronics mesh onto FEA mesh nodes for
+def fitData(sourceCoord,sourceVal,targetID,targetIndex,targetCoord):
+    """Fit point cloud data from a neutronics mesh onto FEA mesh nodes for
     thermostructural simulations.  Interpolation uses Delaunay triangularization
     with a Barycentric interpolation.  Any nodes external to the triangularization
     (due to coordinate rounding) are then extrapolated using a distance weighting of the
@@ -12,7 +12,7 @@ def fitData(sourceCoord,sourceTemp,targetID,targetIndex,targetCoord):
     Parameters:
     
     sourceCoord (float): x,y,z coordinates (m) of source point cloud
-    sourceTemp (float): temperatures (deg C) of source point cloud
+    sourceTemp (float): values (e.g. temperatures or heat generation) of source point cloud
     targetID (int): Sierra mesh node_id_map
     targetIndex (int): Sierra mesh node index (1 to num_nodes)
     targetCoord (float): Sierra mesh node x,y,z coordinates (m)
@@ -25,8 +25,8 @@ def fitData(sourceCoord,sourceTemp,targetID,targetIndex,targetCoord):
     'x' (float): echo of targetCoord[:,0]
     'y' (float): echo of targetCoord[:,1]
     'z' (float): echo of targetCoord[:,2]
-    'Temp' (float): nodal temperatures (deg-C)
-       
+    'Val' (float): interpolated nodal values
+    
     """
     
     #
@@ -85,9 +85,9 @@ def fitData(sourceCoord,sourceTemp,targetID,targetIndex,targetCoord):
     
     
     #
-    # Calculate Interpolated Target Temperatures with Coordinates and Node ID
+    # Calculate Interpolated Target Values with Coordinates and Node ID
     #
-    outTemp = np.multiply(sourceTemp[tri.simplices[tets]],bcoords).sum(axis=1)
+    outVal = np.multiply(sourceVal[tri.simplices[tets]],bcoords).sum(axis=1)
     outCoord = targetCoord[outMask]
     outID = targetID[outMask]
     outIndex = targetIndex[outMask]
@@ -108,9 +108,15 @@ def fitData(sourceCoord,sourceTemp,targetID,targetIndex,targetCoord):
     outerCoord = targetCoord[outMask!=True]
     outerID = targetID[outMask!=True]
     outerIndex = targetIndex[outMask!=True]
-    knn = neighbors.KNeighborsRegressor(3, weights='distance')
-    outerTemp = knn.fit(sourceCoord,sourceTemp).predict(outerCoord)
     
+    if np.any(outerIndex):
+      knn = neighbors.KNeighborsRegressor(3, weights='distance')
+      outerVal = knn.fit(sourceCoord,sourceVal).predict(outerCoord)
+    else:
+      # If all target nodes fall inside the source mesh,
+      # then don't perform the KNN distance weighting.
+      knn = []
+      outerVal = []
     
     #
     # Join the results from the interpolation and extrapolations
@@ -120,24 +126,24 @@ def fitData(sourceCoord,sourceTemp,targetID,targetIndex,targetCoord):
     finalIndex = np.hstack((outIndex,outerIndex))
     finalID = np.hstack((outID,outerID))
     finalCoord = np.vstack((outCoord,outerCoord))
-    finalTemp = np.hstack((outTemp,outerTemp))
+    finalVal = np.hstack((outVal,outerVal))
     
-    #final = np.column_stack([finalIndex, finalID, finalCoord, finalTemp])
+    #final = np.column_stack([finalIndex, finalID, finalCoord, finalVal])
     #final[final[:,0].argsort()]
     
     final = np.empty(len(finalIndex), dtype=([('Index', int), 
-                                              ('ID', int), 
-                                              ('x', float), 
-                                              ('y', float), 
-                                              ('z', float), 
-                                              ('Temp', float)]))
+                                          ('ID', int), 
+                                          ('x', float), 
+                                          ('y', float), 
+                                          ('z', float), 
+                                          ('Val', float)]))
     
     final['Index'] = finalIndex
     final['ID'] = finalID
     final['x'] = finalCoord[:,0]
     final['y'] = finalCoord[:,1]
     final['z'] = finalCoord[:,2]
-    final['Temp'] = finalTemp
+    final['Val'] = finalVal
     
     final.sort(order='Index')
     
