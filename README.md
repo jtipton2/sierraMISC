@@ -7,6 +7,9 @@ Requires Numpy, PyTetGen, and SKLearn modules.  Uses Delaunay triangularization 
 ## fitHeating.py & fitPulse.py
 Requires the SEACAS exodus python module.  Uses fitData to interpolate neutronics point clouds onto a mesh in ExodusII format.
 
+## makeTemps.py
+Requires the SEACAS exodus python module.  Opens a heat transfer solution and opens a neutronics proton pulse temperature rise field.  Creates a new ExodusII file that contains combined temperature fields at defeined timestamps.  (This file is then used to drive a Sierra Explicit Dynamic simulation driven by temperature field-induced thermal expansion.)
+
 ## sierraExport.py
 Requires the SEACAS exodus python module.  Gathers the elemental stress tensors at all available time steps and saves the results in binary Numpy format.
 
