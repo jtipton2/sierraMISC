@@ -8,6 +8,11 @@ the data along with time steps to the ODB.
 
 Built by Joseph B. Tipton, Jr. from original concept by Lianshan Lin (ORNL).
 
+Change Log:
+
+2023-02-22
+  --> Instead of reading eleStress as a huge multidimensional array from one file,
+      now it expects to find a npy file for eleStress at each timestep.
 """
 
 from odbAccess import *
@@ -18,14 +23,12 @@ import numpy as np
 #
 # LOAD DATA FROM SIERRA
 #
-filename = 'Sierra_STS_ST_Hex_Ta_Pulses'
+filename = 'LasagnaOpt_Dynamic_Shroud_Pulses'
 
 with open(filename+'.npy', 'rb') as f:
   eleIDs = np.load(f, allow_pickle=True).tolist()
   blkDict = np.load(f, allow_pickle=True)
   timeArray = np.load(f, allow_pickle=True)
-  eleStress = np.load(f, allow_pickle=True)
-
 
 #
 # ACCESS ODB and ADD STEP with FRAMES
@@ -43,7 +46,6 @@ if odb.steps.keys()[-1] != 'Sierra':
                    description='Sierra pulse results',
                    domain=TIME,
                    timePeriod=timeArray[-1])
-  
   for ii in range(len(timeArray)):
     print('Starting frame ',ii)
     Sframe = step1.Frame(incrementNumber=ii, 
@@ -53,10 +55,11 @@ if odb.steps.keys()[-1] != 'Sierra':
                                 type=TENSOR_3D_FULL, 
                                 componentLabels=('S11', 'S22', 'S33', 'S12', 'S13', 'S23'), 
                                 validInvariants=(MISES,TRESCA,MAX_PRINCIPAL))
+    eleStress = np.load(filename+'_'+str(ii).zfill(3)+'.npy')
     Sfield.addData(position=INTEGRATION_POINT, 
                    instance=odbInstance, 
                    labels=eleIDs, 
-                   data=eleStress[ii].tolist())
+                   data=eleStress.tolist())
     # save every 1000th time step
     if (ii % 1000 == 0):
       odb.save()
@@ -77,10 +80,11 @@ else:
                                 type=TENSOR_3D_FULL, 
                                 componentLabels=('S11', 'S22', 'S33', 'S12', 'S13', 'S23'), 
                                 validInvariants=(MISES,TRESCA,MAX_PRINCIPAL))
+    eleStress = np.load(filename+'_'+str(ii).zfill(3)+'.npy')
     Sfield.addData(position=INTEGRATION_POINT, 
                    instance=odbInstance, 
                    labels=eleIDs, 
-                   data=eleStress[ii].tolist())
+                   data=eleStress.tolist())
     # save every 1000th time step
     if (ii % 1000 == 0):
       odb.save()
